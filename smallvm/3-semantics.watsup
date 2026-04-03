@@ -1,9 +1,7 @@
 syntax memory = map<id, val>
 var M : memory
 
-syntax state =
-    | ON `{ memory `, label `, label? } ;; memory , current label , previous label
-    | OFF memory
+syntax state = { MEM memory , CUR label , PREV label? } ;; memory , current label , previous label
 
 var S : state
 
@@ -48,69 +46,62 @@ def $get_command(block_h :: block*, label) = $get_command(block*, label')
 def $get_command(block_h :: block*, label) = block_h[label]
     -- if $(|block_h| >= label)
 
-extern dec $input() : val
-extern dec $print(val) : bool
+builtin dec $input() : val
+builtin dec $print(val) : bool
 
 ;;
 
-relation Eval_command:
+relation Execute:
     program |- state -> state
     hint(input %0 %1)
 
-rule Eval_command/assign:
+rule Execute/assign:
     P |- S -> S_final
-    -- if ON `{ M `, label `, label_prev? } = S 
-    -- if ASSIGN id exp = $get_command(P, label)
-    -- if val = $eval_exp(M, exp)
-    -- if M_updated = $add_map<id, val>(M, id, val)
-    -- Eval_command: P |- ON `{ M_updated `, $(label + 1) `, label_prev? } -> S_final
+    -- if ASSIGN id exp = $get_command(P, S.CUR)
+    -- if val = $eval_exp(S.MEM, exp)
+    -- if M_updated = $add_map<id, val>(S.MEM, id, val)
+    -- Execute: P |- S[.MEM = M_updated][.CUR = $(S.CUR + 1)] -> S_final
 
-rule Eval_command/br_true:
-    P |- S -> ON `{ M `, label_l `, label }
-    -- if ON `{ M `, label `, label_prev? } = S 
-    -- if BR exp label_l label_r = $get_command(P, label)
-    -- if I1 true = $eval_exp(M, exp)
-
-rule Eval_command/br_false:
+rule Execute/br_true:
     P |- S -> S_final
-    -- if ON `{ M `, label `, label_prev? } = S 
-    -- if BR exp label_l label_r = $get_command(P, label)
-    -- if I1 false = $eval_exp(M, exp)
-    -- Eval_command: P |- ON `{ M `, label_r `, label } -> S_final
+    -- if BR exp label_l label_r = $get_command(P, S.CUR)
+    -- if I1 true = $eval_exp(S.MEM, exp)
+    -- Execute: P |- S[.CUR = label_l] -> S_final
 
-rule Eval_command/jmp:
+rule Execute/br_false:
     P |- S -> S_final
-    -- if ON `{ M `, label `, label_prev? } = S 
-    -- if GOTO label_new = $get_command(P, label)
-    -- Eval_command: P |- ON `{ M `, label_new `, label } -> S_final
+    -- if BR exp label_l label_r = $get_command(P, S.CUR)
+    -- if I1 false = $eval_exp(S.MEM, exp)
+    -- Execute: P |- S[.CUR = label_r] -> S_final
 
-rule Eval_command/phi:
+rule Execute/jmp:
     P |- S -> S_final
-    -- if ON `{ M `, label `, label_prev? } = S
-    -- if PHI id phiopt* = $get_command(P, label)
-    -- if label_from = label_prev?
-    -- if exp = $search_phiopt(label_from, phiopt*)
-    -- if val = $eval_exp(M, exp)
-    -- if M_updated = $add_map<id, val>(M, id, val)
-    -- Eval_command: P |- ON `{ M `, $(label + 1) `, label_prev? } -> S_final
+    -- if GOTO label_new = $get_command(P, S.CUR)
+    -- Execute: P |- S[.CUR = label_new] -> S_final
 
-rule Eval_command/input:
+rule Execute/phi:
     P |- S -> S_final
-    -- if ON `{ M `, label `, label_prev? } = S 
-    -- if INPUT id = $get_command(P, label)
+    -- if PHI id phiopt* = $get_command(P, S.CUR)
+    -- if label_prev = S.PREV
+    -- if exp = $search_phiopt(label_prev, phiopt*)
+    -- if val = $eval_exp(S.MEM, exp)
+    -- if M_updated = $add_map<id, val>(S.MEM, id, val)
+    -- Execute: P |- S[.MEM = M_updated][.CUR = $(S.CUR + 1)] -> S_final
+
+rule Execute/input:
+    P |- S -> S_final
+    -- if INPUT id = $get_command(P, S.CUR)
     -- if val = $input()
-    -- if M_updated = $add_map<id, val>(M, id, val)
-    -- Eval_command: P |- ON `{ M_updated `, $(label + 1) `, label_prev? } -> S_final
+    -- if M_updated = $add_map<id, val>(S.MEM, id, val)
+    -- Execute: P |- S[.MEM = M_updated][.CUR = $(S.CUR + 1)] -> S_final
 
-rule Eval_command/output:
+rule Execute/output:
     P |- S -> S_final
-    -- if ON `{ M `, label `, label_prev? } = S 
-    -- if PRINT exp = $get_command(P, label)
-    -- if val = $eval_exp(M, exp)
+    -- if PRINT exp = $get_command(P, S.CUR)
+    -- if val = $eval_exp(S.MEM, exp)
     -- if $print(val)
-    -- Eval_command: P |- ON `{ M `, $(label + 1) `, label_prev? } -> S_final
+    -- Execute: P |- S[.CUR = $(S.CUR + 1)] -> S_final
 
-rule Eval_command/ret:
-    P |- S -> OFF M
-    -- if ON `{ M `, label `, label_prev? } = S
-    -- if RET = $get_command(P, label)
+rule Execute/ret:
+    P |- S -> S
+    -- if RET = $get_command(P, S.CUR)
