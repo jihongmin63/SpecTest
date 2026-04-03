@@ -6,6 +6,10 @@ def $terminal_ok(command_h :: command*) = $terminal_ok(command*)
     -- if ASSIGN id exp = command_h
 def $terminal_ok(command_h :: command*) = $terminal_ok(command*)
     -- if PHI id phiopt* = command_h
+def $terminal_ok(command_h :: command*) = $terminal_ok(command*)
+    -- if INPUT id = command_h
+def $terminal_ok(command_h :: command*) = $terminal_ok(command*)
+    -- if PRINT exp = command_h
 def $terminal_ok(block) = false
     -- otherwise
 

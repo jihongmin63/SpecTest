@@ -34,6 +34,8 @@ syntax command =
     | BR exp label label
     | GOTO label
     | PHI id phiopt*
+    | INPUT id
+    | PRINT exp
     | RET
 
 syntax block = command*

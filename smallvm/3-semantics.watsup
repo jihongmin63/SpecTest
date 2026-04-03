@@ -47,7 +47,10 @@ def $get_command(block_h :: block*, label) = $get_command(block*, label')
     -- if label' = $(label - |block_h|)
 def $get_command(block_h :: block*, label) = block_h[label]
     -- if $(|block_h| >= label)
-    
+
+extern dec $input() : val
+extern dec $print(val) : bool
+
 ;;
 
 relation Eval_command:
@@ -89,6 +92,22 @@ rule Eval_command/phi:
     -- if exp = $search_phiopt(label_from, phiopt*)
     -- if val = $eval_exp(M, exp)
     -- if M_updated = $add_map<id, val>(M, id, val)
+    -- Eval_command: P |- ON `{ M `, $(label + 1) `, label_prev? } -> S_final
+
+rule Eval_command/input:
+    P |- S -> S_final
+    -- if ON `{ M `, label `, label_prev? } = S 
+    -- if INPUT id = $get_command(P, label)
+    -- if val = $input()
+    -- if M_updated = $add_map<id, val>(M, id, val)
+    -- Eval_command: P |- ON `{ M_updated `, $(label + 1) `, label_prev? } -> S_final
+
+rule Eval_command/output:
+    P |- S -> S_final
+    -- if ON `{ M `, label `, label_prev? } = S 
+    -- if PRINT exp = $get_command(P, label)
+    -- if val = $eval_exp(M, exp)
+    -- if $print(val)
     -- Eval_command: P |- ON `{ M `, $(label + 1) `, label_prev? } -> S_final
 
 rule Eval_command/ret:
