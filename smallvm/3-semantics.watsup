@@ -1,0 +1,97 @@
+syntax memory = map<id, val>
+var M : memory
+
+syntax state =
+    | ON `{ memory `, label `, label? } ;; memory , current label , previous label
+    | OFF memory
+
+var S : state
+
+dec $artih_exp(arithop, val, val) : val
+def $artih_exp(PLUS, I32 i_1, I32 i_2) = I32 $(i_1 + i_2)
+def $artih_exp(MINUS, I32 i_1, I32 i_2) = I32 $(i_1 - i_2)
+def $artih_exp(MULT, I32 i_1, I32 i_2) = I32 $(i_1 * i_2)
+def $artih_exp(DIV, I32 i_1, I32 i_2) = I32 $(i_1 / i_2)
+
+dec $cmp_exp(cmpop, val, val) : val
+def $cmp_exp(EQ, val_l, val_r) = I1 (val_l = val_r)
+def $cmp_exp(NEQ, val_l, val_r) = I1 (val_l =/= val_r)
+
+dec $eval_exp(memory, exp) : val
+def $eval_exp(M, INT int) = I32 int
+def $eval_exp(M, BOOL bool) = I1 bool
+def $eval_exp(M, VAR id) = val
+    -- if val = $find_map<id, val>(M, id)
+def $eval_exp(M, ARITH arithop exp_l exp_r) = $artih_exp(arithop, val_l, val_r)
+    -- if val_l = $eval_exp(M, exp_l)
+    -- if val_r = $eval_exp(M, exp_r)
+def $eval_exp(M, COMP cmpop exp_l exp_r) = $cmp_exp(cmpop, val_l, val_r)
+    -- if val_l = $eval_exp(M, exp_l)
+    -- if val_r = $eval_exp(M, exp_r)
+
+;;
+
+dec $search_phiopt(label, phiopt*) : exp?
+def $search_phiopt(label, eps) = eps
+def $search_phiopt(label_tar, (label exp) :: phiopt*) = exp
+    -- if label_tar = label
+def $search_phiopt(label_tar, (label exp) :: phiopt*) = $search_phiopt(label, phiopt*)
+    -- if label_tar =/= label
+
+;;
+
+dec $get_command(program, label) : command?
+def $get_command(eps, label) = eps
+def $get_command(block_h :: block*, label) = $get_command(block*, label')
+    -- if $(|block_h| < label)
+    -- if label' = $(label - |block_h|)
+def $get_command(block_h :: block*, label) = block_h[label]
+    -- if $(|block_h| >= label)
+    
+;;
+
+relation Eval_command:
+    program |- state -> state
+    hint(input %0 %1)
+
+rule Eval_command/assign:
+    P |- S -> S_final
+    -- if ON `{ M `, label `, label_prev? } = S 
+    -- if ASSIGN id exp = $get_command(P, label)
+    -- if val = $eval_exp(M, exp)
+    -- if M_updated = $add_map<id, val>(M, id, val)
+    -- Eval_command: P |- ON `{ M_updated `, $(label + 1) `, label_prev? } -> S_final
+
+rule Eval_command/br_true:
+    P |- S -> ON `{ M `, label_l `, label }
+    -- if ON `{ M `, label `, label_prev? } = S 
+    -- if BR exp label_l label_r = $get_command(P, label)
+    -- if I1 true = $eval_exp(M, exp)
+
+rule Eval_command/br_false:
+    P |- S -> S_final
+    -- if ON `{ M `, label `, label_prev? } = S 
+    -- if BR exp label_l label_r = $get_command(P, label)
+    -- if I1 false = $eval_exp(M, exp)
+    -- Eval_command: P |- ON `{ M `, label_r `, label } -> S_final
+
+rule Eval_command/jmp:
+    P |- S -> S_final
+    -- if ON `{ M `, label `, label_prev? } = S 
+    -- if GOTO label_new = $get_command(P, label)
+    -- Eval_command: P |- ON `{ M `, label_new `, label } -> S_final
+
+rule Eval_command/phi:
+    P |- S -> S_final
+    -- if ON `{ M `, label `, label_prev? } = S
+    -- if PHI id phiopt* = $get_command(P, label)
+    -- if label_from = label_prev?
+    -- if exp = $search_phiopt(label_from, phiopt*)
+    -- if val = $eval_exp(M, exp)
+    -- if M_updated = $add_map<id, val>(M, id, val)
+    -- Eval_command: P |- ON `{ M `, $(label + 1) `, label_prev? } -> S_final
+
+rule Eval_command/ret:
+    P |- S -> OFF M
+    -- if ON `{ M `, label `, label_prev? } = S
+    -- if RET = $get_command(P, label)

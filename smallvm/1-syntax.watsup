@@ -1,0 +1,41 @@
+syntax label = nat
+
+syntax val =
+    | I32 int
+    | I1 bool
+
+syntax id = text
+
+syntax arithop =
+    | PLUS
+    | MINUS
+    | MULT
+    | DIV
+
+syntax cmpop =
+    | LT
+    | LE 
+    | GT 
+    | GE 
+    | EQ
+    | NEQ
+
+syntax exp =
+    | INT int
+    | BOOL bool
+    | VAR id
+    | ARITH arithop exp exp
+    | COMP cmpop exp exp
+
+syntax phiopt = label exp
+
+syntax command =
+    | ASSIGN id exp
+    | BR exp label label
+    | GOTO label
+    | PHI id phiopt*
+    | RET
+
+syntax block = command*
+syntax program = block*
+var P : program

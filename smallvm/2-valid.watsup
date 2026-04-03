@@ -1,0 +1,21 @@
+dec $terminal_ok(block) : bool
+def $terminal_ok(RET) = true
+def $terminal_ok(BR exp label_1 label_2) = true
+def $terminal_ok(GOTO label) = true
+def $terminal_ok(command_h :: command*) = $terminal_ok(command*)
+    -- if ASSIGN id exp = command_h
+def $terminal_ok(command_h :: command*) = $terminal_ok(command*)
+    -- if PHI id phiopt* = command_h
+def $terminal_ok(block) = false
+    -- otherwise
+
+;;
+
+relation Program_is_ok:
+    OK program
+    hint(input %0)
+
+rule Program_is_ok:
+    OK block*
+    -- if $(|block| >= 1)*
+    -- if $terminal_ok(block)*
